@@ -126,8 +126,6 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 		}
 	}
 
-	//TODO: Remove
-	logger.Info(fmt.Sprintf("shouldInjectProxySidecar(pod) %v", shouldInjectProxySidecar(pod)))
 	if shouldInjectProxySidecar(pod) {
 		// if the pod has hostNetwork set to true, we cannot inject the proxy sidecar
 		// as it'll end up modifying the network stack of the host and affecting other pods
@@ -144,8 +142,6 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 		}
 
 		useNativeSidecar := useNativeProxySidecar(pod)
-		//TODO: Remove
-		logger.Info(fmt.Sprintf("injecting sidecar %v", useNativeSidecar))
 
 		pod.Spec.InitContainers = m.injectProxyInitContainer(pod.Spec.InitContainers, proxyPort)
 		if useNativeSidecar {
@@ -153,8 +149,6 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 		} else {
 			pod.Spec.Containers = m.injectProxySidecarContainer(pod.Spec.Containers, proxyPort, nil)
 		}
-		//TODO: Remove
-		logger.Info(fmt.Sprintf("modified sidecar %v", pod.Spec))
 	}
 
 	// get service account token expiration
@@ -230,15 +224,10 @@ func (m *podMutator) injectProxyInitContainer(containers []corev1.Container, pro
 }
 
 func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, proxyPort int32, restartPolicy *corev1.ContainerRestartPolicy) []corev1.Container {
-	logger := mlog.New().WithName("injectProxySidecarContainer")
 	imageRepository := strings.Join([]string{ProxyImageRegistry, ProxySidecarImageName}, "/")
 	for _, container := range containers {
+		// proxy-init starts with proxy, so we append ":" to imageRepository when checking
 		if strings.HasPrefix(container.Image, fmt.Sprintf("%s:", imageRepository)) || container.Name == ProxySidecarContainerName {
-			//TODO: Remove
-			logger.Info(fmt.Sprintf("ignoring container. prefix: %v nameEqual: %v"), strings.HasPrefix(container.Image, imageRepository), container.Name == ProxySidecarContainerName)
-			logger.Info(fmt.Sprintf("imageRepository: %s container.Image: %s", imageRepository, container.Image))
-			logger.Info(fmt.Sprintf("ProxySidecarContainerName: %s container.Name: %s", ProxySidecarContainerName, container.Name))
-
 			return containers
 		}
 	}
