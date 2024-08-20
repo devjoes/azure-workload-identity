@@ -141,8 +141,14 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
+		useNativeSidecar := useNativeProxySidecar(pod)
+
 		pod.Spec.InitContainers = m.injectProxyInitContainer(pod.Spec.InitContainers, proxyPort)
-		pod.Spec.Containers = m.injectProxySidecarContainer(pod.Spec.Containers, proxyPort)
+		if useNativeSidecar {
+			pod.Spec.InitContainers = m.injectProxySidecarContainer(pod.Spec.InitContainers, proxyPort, ptr.To(corev1.ContainerRestartPolicyAlways))
+		} else {
+			pod.Spec.Containers = m.injectProxySidecarContainer(pod.Spec.Containers, proxyPort, nil)
+		}
 	}
 
 	// get service account token expiration
@@ -217,7 +223,7 @@ func (m *podMutator) injectProxyInitContainer(containers []corev1.Container, pro
 	return containers
 }
 
-func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, proxyPort int32) []corev1.Container {
+func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, proxyPort int32, restartPolicy *corev1.ContainerRestartPolicy) []corev1.Container {
 	imageRepository := strings.Join([]string{ProxyImageRegistry, ProxySidecarImageName}, "/")
 	for _, container := range containers {
 		if strings.HasPrefix(container.Image, imageRepository) || container.Name == ProxySidecarContainerName {
@@ -226,6 +232,7 @@ func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, 
 	}
 
 	logLevel := currentLogLevel() // run the proxy at the same log level as the webhook
+
 	containers = append([]corev1.Container{{
 		Name:            ProxySidecarContainerName,
 		Image:           strings.Join([]string{imageRepository, ProxyImageVersion}, ":"),
@@ -258,6 +265,7 @@ func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, 
 			ReadOnlyRootFilesystem: ptr.To(true),
 			RunAsNonRoot:           ptr.To(true),
 		},
+		RestartPolicy: restartPolicy,
 	}}, containers...)
 
 	return containers
@@ -268,6 +276,14 @@ func shouldInjectProxySidecar(pod *corev1.Pod) bool {
 		return false
 	}
 	_, ok := pod.Annotations[InjectProxySidecarAnnotation]
+	return ok
+}
+
+func useNativeProxySidecar(pod *corev1.Pod) bool {
+	if len(pod.Annotations) == 0 {
+		return false
+	}
+	_, ok := pod.Annotations[UseNativeSidecarAnnotation]
 	return ok
 }
 
