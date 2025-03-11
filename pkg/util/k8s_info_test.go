@@ -60,16 +60,16 @@ func TestAssertK8sMinVersion(t *testing.T) {
 				Minor: tt.minor,
 			}
 
-			mj := 1
-			mn := 28
+			major := 1
+			minor := 28
 
 			client.ServerVersion()
-			result, err := AssertK8sMinVersion(&config, mj, mn)
+			result, err := AssertK8sMinVersion(&config, major, minor)
 			if err != nil && !tt.expectErr {
-				t.Errorf("AssertK8sMinVersion(%v, %d, %d) errored", config, mj, mn)
+				t.Errorf("AssertK8sMinVersion(%v, %d, %d) errored", config, major, minor)
 			}
 			if result != tt.expected {
-				t.Errorf("AssertK8sMinVersion(%v, %d, %d) = %t, want %t", config, mj, mn, result, tt.expected)
+				t.Errorf("AssertK8sMinVersion(%v, %d, %d) = %t, want %t", config, major, minor, result, tt.expected)
 			}
 		})
 	}
